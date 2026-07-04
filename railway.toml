@@ -1,0 +1,6 @@
+[build]
+
+[deploy]
+
+[deploy.variables]
+npm_config_build_from_source = "true"
