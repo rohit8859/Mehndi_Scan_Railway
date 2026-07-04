@@ -105,22 +105,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Credentials guide */}
-        <div className="mt-8 pt-6 border-t border-amber-900/10 text-center">
-          <p className="text-xs text-amber-200/40 uppercase tracking-widest mb-3">Predefined Portal Roles</p>
-          <div className="grid grid-cols-2 gap-3 text-left">
-            <div className="p-3 bg-zinc-950/30 rounded-xl border border-amber-900/5">
-              <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Admin</p>
-              <p className="text-xs text-zinc-400 mt-1 font-mono">User: admin</p>
-              <p className="text-xs text-zinc-400 font-mono">Pass: adminpassword</p>
-            </div>
-            <div className="p-3 bg-zinc-950/30 rounded-xl border border-amber-900/5">
-              <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Reviewer</p>
-              <p className="text-xs text-zinc-400 mt-1 font-mono">User: reviewer</p>
-              <p className="text-xs text-zinc-400 font-mono">Pass: reviewerpassword</p>
-            </div>
-          </div>
-        </div>
+
       </div>
     </main>
   );

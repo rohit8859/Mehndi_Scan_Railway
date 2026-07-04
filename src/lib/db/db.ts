@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 
-const DB_PATH = path.resolve(process.cwd(), 'mehsang.db');
+const DB_PATH = process.env.SQLITE_DB_PATH || path.resolve(process.cwd(), 'mehsang.db');
 let dbInstance: Database | null = null;
 
 // SHA-256 password hashing helper
