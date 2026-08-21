@@ -1,0 +1,10 @@
+
+> mehsang-app@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.29.144.1:3000
+✓ Ready in 2.9s
+
+ GET /login 200 in 2.3s (next.js: 776ms, application-code: 1542ms)
