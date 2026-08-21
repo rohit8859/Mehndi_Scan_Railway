@@ -1,4 +1,3 @@
-import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 
@@ -10,6 +9,7 @@ import fs from 'fs';
  * @returns Watermarked image binary buffer
  */
 export async function watermarkImage(imageBuffer: Buffer): Promise<Buffer> {
+  const sharp = (await import('sharp')).default;
   const metadata = await sharp(imageBuffer).metadata();
   const imgWidth = metadata.width || 1200;
   const imgHeight = metadata.height || 1200;

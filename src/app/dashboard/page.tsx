@@ -298,7 +298,8 @@ export default function DashboardPage() {
           setSelectedImage(null);
         }
       } else {
-        showToast('Failed to load images from server', 'error');
+        const errorJson = await res.json().catch(() => ({}));
+        showToast(errorJson.error || 'Failed to load images from server', 'error');
       }
     } catch (err) {
       console.error(err);

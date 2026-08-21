@@ -128,6 +128,8 @@ export async function getDb(): Promise<AppDatabase> {
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
     dbInstance = new LibsqlDatabaseWrapper(client);
+  } else if (process.env.VERCEL) {
+    throw new Error('TURSO_DATABASE_URL environment variable is missing in Vercel project settings. Please add TURSO_DATABASE_URL to Environment Variables in Vercel.');
   } else {
     console.log('Connecting to local SQLite database...');
     const dir = path.dirname(DB_PATH);
@@ -152,8 +154,12 @@ export async function getDb(): Promise<AppDatabase> {
     dbInstance = new SqliteDatabaseWrapper(sqliteDb);
   }
 
-  // Initialize Schema and Seed data if necessary
-  await initializeSchema(dbInstance);
+  // Initialize Schema and Seed data safely
+  try {
+    await initializeSchema(dbInstance);
+  } catch (schemaErr) {
+    console.warn('Schema initialization warning (ignoring if tables exist):', schemaErr);
+  }
 
   return dbInstance;
 }
