@@ -24,7 +24,7 @@ Analyze the provided image and return ONLY a structured JSON response matching t
    "Image", "Video"
 
 2. Design Style (choose exactly one):
-   "Bridal", "Arabic", "Indo-Arabic", "Traditional Indian", "Rajasthani", "Pakistani", "Moroccan", "Gulf Style", "Modern", "Minimal", "Contemporary", "Portrait Mehndi", "Mandala", "Jewelry Style", "Floral", "Peacock", "Mughal", "Western Fusion"
+   "Bridal", "Groom", "Arabic", "Indo-Arabic", "Traditional Indian", "Rajasthani", "Pakistani", "Moroccan", "Gulf Style", "Modern", "Minimal", "Contemporary", "Portrait Mehndi", "Mandala", "Jewelry Style", "Floral", "Peacock", "Mughal", "Western Fusion"
 
 3. Occasion (choose exactly one):
    "Wedding", "Engagement", "Roka", "Sangeet", "Haldi", "Karwa Chauth", "Teej", "Eid", "Diwali", "Baby Shower", "Birthday", "Corporate Event", "Festival", "Party"

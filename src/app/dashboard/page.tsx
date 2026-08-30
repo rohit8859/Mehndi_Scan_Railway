@@ -93,7 +93,7 @@ const normalizeNoOfHands = (val: string): string => {
 
 // Option Lists
 const STYLE_OPTIONS = [
-  'Bridal', 'Arabic', 'Indo-Arabic', 'Traditional Indian', 'Rajasthani', 'Pakistani', 'Moroccan', 'Gulf Style',
+  'Bridal', 'Groom', 'Arabic', 'Indo-Arabic', 'Traditional Indian', 'Rajasthani', 'Pakistani', 'Moroccan', 'Gulf Style',
   'Modern', 'Minimal', 'Contemporary', 'Portrait Mehndi', 'Mandala', 'Jewelry Style', 'Floral', 'Peacock',
   'Mughal', 'Western Fusion', 'Casual'
 ];
