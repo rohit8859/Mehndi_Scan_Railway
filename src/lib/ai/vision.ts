@@ -39,7 +39,7 @@ Analyze the provided image and return ONLY a structured JSON response matching t
    "Very Simple", "Simple", "Medium", "Heavy", "Very Heavy"
 
 7. Design Elements (multiple selections allowed, select all that apply from this list):
-    "3D Mehndi Pattern", "Ambi (Paisley) Pattern", "Baraat", "Birds", "Bracelet Pattern", "Bride & Groom", "Butterfly", "Couple Portrait", "Custom Portrait", "Diya", "Doli", "Elephant", "Family Portrait", "Floral Pattern", "Initials/Hidden Name", "Jaal Pattern", "Jaimala Scene", "Jewelry Pattern", "Kalash", "Lakshmi Ji", "Lord Ganesha", "Lord Krishna (Flute)", "Lord Rama & Sita", "Lord Shiva & Parvati", "Lotus", "Mandala", "Name/Monogram", "Om Symbol", "Palace Architecture", "Peacock", "Pet Portrait", "Portrait", "Radha Krishna", "Rose", "Shankh (Conch)", "Swastik (Hindu auspicious symbol)", "Taj Mahal", "Temple", "Vine Pattern", "Wedding Mandap", "Wedding Vows", "Zodiac Symbol"
+    "3D Mehndi Pattern", "Ambi (Paisley) Pattern", "Baraat", "Birds", "Bracelet Pattern", "Bride & Groom", "Butterfly", "Couple Portrait", "Cow", "Custom Portrait", "Diya", "Doli", "Elephant", "Family Portrait", "Floral Pattern", "Initials/Hidden Name", "Jaal Pattern", "Jaimala Scene", "Jewelry Pattern", "Kalash", "Lakshmi Ji", "Lord Ganesha", "Lord Krishna (Flute)", "Lord Rama & Sita", "Lord Shiva & Parvati", "Lotus", "Mandala", "Name/Monogram", "Om Symbol", "Palace Architecture", "Peacock", "Pet Portrait", "Portrait", "Radha Krishna", "Rose", "Shankh (Conch)", "Swastik (Hindu auspicious symbol)", "Taj Mahal", "Temple", "Trishul", "Vine Pattern", "Wedding Mandap", "Wedding Vows", "Zodiac Symbol"
 
 8. Time Taken (predict a realistic time duration for applying this design, return as a string e.g. "15 Mins", "1 Hour", "4 Hours").
 
