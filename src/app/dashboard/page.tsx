@@ -387,23 +387,24 @@ export default function DashboardPage() {
     }
   }, [images, selectedImage]);
 
-  // Core single-update operations: SAVE, APPROVE, REJECT
-  const handleUpdateImage = async (action: 'SAVE' | 'APPROVE' | 'APPROVE_ORIGINAL' | 'REJECT' | 'SUBMIT' | 'DELETE') => {
+  // Core single-update operations: SAVE, APPROVE, REJECT, WATERMARK
+  const handleUpdateImage = async (action: 'SAVE' | 'APPROVE' | 'APPROVE_ORIGINAL' | 'REJECT' | 'SUBMIT' | 'DELETE' | 'WATERMARK') => {
     if (!selectedImage) return;
     setActionLoading(true);
 
-    // 1. Instantly find the next image to transition to before the network request
-    const currentIndex = images.findIndex((img) => img.id === selectedImage.id);
-    const hasNext = currentIndex !== -1 && currentIndex < images.length - 1;
-    const nextImage = hasNext ? images[currentIndex + 1] : null;
+    // Only perform optimistic queue removal for queue-advancing actions (APPROVE, REJECT, DELETE, SUBMIT)
+    if (action === 'APPROVE' || action === 'REJECT' || action === 'DELETE' || action === 'SUBMIT') {
+      const currentIndex = images.findIndex((img) => img.id === selectedImage.id);
+      const hasNext = currentIndex !== -1 && currentIndex < images.length - 1;
+      const nextImage = hasNext ? images[currentIndex + 1] : null;
 
-    // 2. Optimistic UI Transition: switch photo instantly and remove the saved one from queue
-    if (nextImage) {
-      handleSelectImage(nextImage);
-    } else {
-      setSelectedImage(null);
+      if (nextImage) {
+        handleSelectImage(nextImage);
+      } else {
+        setSelectedImage(null);
+      }
+      setImages((prev) => prev.filter((img) => img.id !== selectedImage.id));
     }
-    setImages((prev) => prev.filter((img) => img.id !== selectedImage.id));
 
     try {
       const res = await fetch('/api/images', {
@@ -412,6 +413,11 @@ export default function DashboardPage() {
         body: JSON.stringify({
           action,
           id: selectedImage.id,
+          gdrive_file_id: selectedImage.gdrive_file_id,
+          filename: selectedImage.filename,
+          sheet_row_index: selectedImage.id.toString().startsWith('sheet_')
+            ? parseInt(selectedImage.id.toString().replace('sheet_', ''))
+            : (selectedImage as any).sheet_row_index,
           style: editStyle.join(', '),
           occasion: editOccasion.join(', '),
           coverage: editCoverage,
@@ -426,33 +432,37 @@ export default function DashboardPage() {
       });
 
       if (res.ok) {
-        showToast(
-          action === 'APPROVE'
-            ? 'Approved and synced successfully'
-            : action === 'REJECT'
-            ? 'Marked as rejected'
-            : action === 'SUBMIT'
-            ? 'Submitted to admin for final approval'
-            : action === 'DELETE'
-            ? 'Deleted from system'
-            : action === 'WATERMARK'
-            ? 'Watermark applied and synced successfully'
-            : 'Changes saved',
-          'success'
-        );
-        
-        // Sync fresh list in background
-        fetchImages();
+        const data = await res.json();
+        if (action === 'WATERMARK') {
+          showToast('Watermark applied and synced to Google Sheet!', 'success');
+          if (data.newFileId) {
+            const updatedImageUrl = `/api/images/${data.newFileId}?t=${Date.now()}`;
+            setSelectedImage((prev) => prev ? { ...prev, gdrive_file_id: data.newFileId, image_url: updatedImageUrl } : null);
+            setImages((prev) => prev.map((img) => img.id === selectedImage.id ? { ...img, gdrive_file_id: data.newFileId, image_url: updatedImageUrl } : img));
+          }
+        } else {
+          showToast(
+            action === 'APPROVE'
+              ? 'Approved and synced successfully'
+              : action === 'REJECT'
+              ? 'Marked as rejected'
+              : action === 'SUBMIT'
+              ? 'Submitted to admin for final approval'
+              : action === 'DELETE'
+              ? 'Deleted from system'
+              : 'Changes saved',
+            'success'
+          );
+          fetchImages();
+        }
       } else {
         const err = await res.json();
         showToast(`Action failed: ${err.error || 'Server error'}`, 'error');
-        // Rollback state if action failed
         fetchImages();
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast('Network error during update', 'error');
-      // Rollback state if action failed
+      showToast(`Network error: ${e.message || e}`, 'error');
       fetchImages();
     } finally {
       setActionLoading(false);

@@ -1337,53 +1337,60 @@ export async function POST(req: NextRequest) {
 
     if (action === 'WATERMARK') {
       try {
-        let fileId = '';
-        let filename = 'image.jpg';
-        let sheetRowIndex: number | null = null;
+        let fileId = body.gdrive_file_id || '';
+        let filename = body.filename || 'image.jpg';
+        let sheetRowIndex: number | null = body.sheet_row_index || null;
         let dbId: any = null;
 
-        if (typeof id === 'string' && id.startsWith('reapprove_')) {
-          const requestId = parseInt(id.replace('reapprove_', ''));
-          const reqRecord = await db.get('SELECT * FROM reapprove_requests WHERE id = ?', requestId);
-          if (!reqRecord) {
-            return NextResponse.json({ error: 'Re-approval record not found' }, { status: 404 });
+        if (typeof id === 'string' && id.startsWith('sheet_')) {
+          sheetRowIndex = parseInt(id.replace('sheet_', ''));
+        }
+
+        if (!fileId) {
+          if (typeof id === 'string' && id.startsWith('reapprove_')) {
+            const requestId = parseInt(id.replace('reapprove_', ''));
+            const reqRecord = await db.get('SELECT * FROM reapprove_requests WHERE id = ?', requestId);
+            if (!reqRecord) {
+              return NextResponse.json({ error: 'Re-approval record not found' }, { status: 404 });
+            }
+            fileId = reqRecord.gdrive_file_id;
+            filename = reqRecord.filename || filename;
+            sheetRowIndex = reqRecord.sheet_row_index;
+          } else if (typeof id === 'string' && id.startsWith('sheet_')) {
+            const rowIndex = parseInt(id.replace('sheet_', ''));
+            sheetRowIndex = rowIndex;
+            const spreadsheetId = (await db.get("SELECT value FROM settings WHERE key = 'google_spreadsheet_id'"))?.value;
+            const sheetName = (await db.get("SELECT value FROM settings WHERE key = 'google_sheet_name'"))?.value || 'Sheet1';
+            if (!spreadsheetId) {
+              return NextResponse.json({ error: 'Google Spreadsheet ID is not configured' }, { status: 400 });
+            }
+            const { getGoogleAuth } = await import('@/lib/google/gdrive');
+            const { google } = await import('googleapis');
+            const auth = getGoogleAuth();
+            const sheets = google.sheets({ version: 'v4', auth });
+            const response = await sheets.spreadsheets.values.get({
+              spreadsheetId,
+              range: `${sheetName}!A${rowIndex}:B${rowIndex}`,
+            });
+            const row = response.data.values?.[0] || [];
+            filename = row[0] || filename;
+            const driveLink = row[1] || '';
+            const match = driveLink.match(/[?&]id=([^&]+)/);
+            if (match) fileId = match[1];
+            else {
+              const matchd = driveLink.match(/\/d\/([^\/]+)/);
+              if (matchd) fileId = matchd[1];
+            }
+          } else {
+            const imgRecord = await db.get('SELECT * FROM images WHERE id = ?', id);
+            if (imgRecord) {
+              fileId = imgRecord.gdrive_file_id;
+              filename = imgRecord.filename || filename;
+              dbId = imgRecord.id;
+            } else if (typeof id === 'string' && !id.startsWith('sheet_') && !id.startsWith('reapprove_')) {
+              fileId = id;
+            }
           }
-          fileId = reqRecord.gdrive_file_id;
-          filename = reqRecord.filename || 'image.jpg';
-          sheetRowIndex = reqRecord.sheet_row_index;
-        } else if (typeof id === 'string' && id.startsWith('sheet_')) {
-          const rowIndex = parseInt(id.replace('sheet_', ''));
-          sheetRowIndex = rowIndex;
-          const spreadsheetId = (await db.get("SELECT value FROM settings WHERE key = 'google_spreadsheet_id'"))?.value;
-          const sheetName = (await db.get("SELECT value FROM settings WHERE key = 'google_sheet_name'"))?.value || 'Sheet1';
-          if (!spreadsheetId) {
-            return NextResponse.json({ error: 'Google Spreadsheet ID is not configured' }, { status: 400 });
-          }
-          const { getGoogleAuth } = await import('@/lib/google/gdrive');
-          const { google } = await import('googleapis');
-          const auth = getGoogleAuth();
-          const sheets = google.sheets({ version: 'v4', auth });
-          const response = await sheets.spreadsheets.values.get({
-            spreadsheetId,
-            range: `${sheetName}!A${rowIndex}:B${rowIndex}`,
-          });
-          const row = response.data.values?.[0] || [];
-          filename = row[0] || 'image.jpg';
-          const driveLink = row[1] || '';
-          const match = driveLink.match(/[?&]id=([^&]+)/);
-          if (match) fileId = match[1];
-          else {
-            const matchd = driveLink.match(/\/d\/([^\/]+)/);
-            if (matchd) fileId = matchd[1];
-          }
-        } else {
-          const imgRecord = await db.get('SELECT * FROM images WHERE id = ?', id);
-          if (!imgRecord) {
-            return NextResponse.json({ error: 'Image record not found' }, { status: 404 });
-          }
-          fileId = imgRecord.gdrive_file_id;
-          filename = imgRecord.filename || 'image.jpg';
-          dbId = imgRecord.id;
         }
 
         if (!fileId) {
