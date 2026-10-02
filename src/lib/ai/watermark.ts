@@ -16,10 +16,15 @@ export async function watermarkImage(imageBuffer: Buffer): Promise<Buffer> {
 
   // Scale watermark to 16% of image width, with a minimum of 140px
   const targetWidth = Math.max(140, Math.round(imgWidth * 0.16));
-  // Load static watermark from public folder
-  const watermarkPath = path.join(process.cwd(), 'public/watermark.png');
-  if (!fs.existsSync(watermarkPath)) {
-    throw new Error('Watermark template public/watermark.png not found');
+  // Load static watermark from public folder – try multiple paths for deployment compatibility
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'watermark.png'),
+    path.join(process.cwd(), '..', 'public', 'watermark.png'),
+    path.resolve('public', 'watermark.png'),
+  ];
+  const watermarkPath = possiblePaths.find(p => fs.existsSync(p));
+  if (!watermarkPath) {
+    throw new Error(`Watermark template not found. Searched: ${possiblePaths.join(', ')}`);
   }
 
   // Downscale the high-resolution template to target dimensions (razor-sharp)
