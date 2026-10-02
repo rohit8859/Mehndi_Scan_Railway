@@ -502,6 +502,116 @@ export async function POST(req: NextRequest) {
         await db.run(`DELETE FROM images WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids);
         return NextResponse.json({ success: true, message: `Successfully deleted ${ids.length} records` });
       }
+
+      if (action === 'BULK_WATERMARK') {
+        const driveFolders = await setupDriveFolders();
+        const spreadsheetId = (await db.get("SELECT value FROM settings WHERE key = 'google_spreadsheet_id'"))?.value;
+        const sheetName = (await db.get("SELECT value FROM settings WHERE key = 'google_sheet_name'"))?.value || 'Sheet1';
+
+        const { getGoogleAuth } = await import('@/lib/google/gdrive');
+        const { google } = await import('googleapis');
+        const auth = getGoogleAuth();
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const singleId of ids) {
+          try {
+            let fileId = '';
+            let filename = 'image.jpg';
+            let sheetRowIndex: number | null = null;
+            let dbId: any = null;
+
+            if (typeof singleId === 'string' && singleId.startsWith('reapprove_')) {
+              const reqId = parseInt(singleId.replace('reapprove_', ''));
+              const reqRecord = await db.get('SELECT * FROM reapprove_requests WHERE id = ?', reqId);
+              if (reqRecord) {
+                fileId = reqRecord.gdrive_file_id;
+                filename = reqRecord.filename || 'image.jpg';
+                sheetRowIndex = reqRecord.sheet_row_index;
+              }
+            } else if (typeof singleId === 'string' && singleId.startsWith('sheet_')) {
+              const rowIndex = parseInt(singleId.replace('sheet_', ''));
+              sheetRowIndex = rowIndex;
+              if (spreadsheetId) {
+                const response = await sheets.spreadsheets.values.get({
+                  spreadsheetId,
+                  range: `${sheetName}!A${rowIndex}:B${rowIndex}`,
+                });
+                const row = response.data.values?.[0] || [];
+                filename = row[0] || 'image.jpg';
+                const driveLink = row[1] || '';
+                const match = driveLink.match(/[?&]id=([^&]+)/);
+                if (match) fileId = match[1];
+                else {
+                  const matchd = driveLink.match(/\/d\/([^\/]+)/);
+                  if (matchd) fileId = matchd[1];
+                }
+              }
+            } else {
+              const imgRecord = await db.get('SELECT * FROM images WHERE id = ?', singleId);
+              if (imgRecord) {
+                fileId = imgRecord.gdrive_file_id;
+                filename = imgRecord.filename || 'image.jpg';
+                dbId = imgRecord.id;
+              }
+            }
+
+            if (!fileId) {
+              failCount++;
+              continue;
+            }
+
+            const originalBuffer = await downloadImageBuffer(fileId);
+            const watermarkedBuffer = await watermarkImage(originalBuffer);
+            const mimeType = filename.toLowerCase().endsWith('.png') ? 'image/png' : (filename.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg');
+
+            const newFileId = await uploadFile(filename, watermarkedBuffer, mimeType, driveFolders.verifiedId);
+            if (newFileId) {
+              const newDriveLink = `https://drive.google.com/open?id=${newFileId}`;
+
+              if (dbId) {
+                await db.run('UPDATE images SET gdrive_file_id = ? WHERE id = ?', newFileId, dbId);
+              } else if (fileId) {
+                await db.run('UPDATE images SET gdrive_file_id = ? WHERE gdrive_file_id = ?', newFileId, fileId);
+              }
+
+              if (typeof singleId === 'string' && singleId.startsWith('reapprove_')) {
+                const reqId = parseInt(singleId.replace('reapprove_', ''));
+                await db.run('UPDATE reapprove_requests SET gdrive_file_id = ? WHERE id = ?', newFileId, reqId);
+              }
+
+              if (spreadsheetId && sheetRowIndex) {
+                try {
+                  await sheets.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: `${sheetName}!B${sheetRowIndex}`,
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: { values: [[newDriveLink]] },
+                  });
+                } catch (e) {}
+              }
+
+              try {
+                await deleteFile(fileId);
+              } catch (e) {}
+
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch (e) {
+            console.error(`Error watermarking item ${singleId}:`, e);
+            failCount++;
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Successfully applied watermark to ${successCount} image(s)${failCount > 0 ? ` (${failCount} failed)` : ''}`,
+        });
+      }
     }
 
     // --- 2. Single Record Actions ---
@@ -1223,6 +1333,122 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ success: true, message: 'Image rejected successfully' });
+    }
+
+    if (action === 'WATERMARK') {
+      try {
+        let fileId = '';
+        let filename = 'image.jpg';
+        let sheetRowIndex: number | null = null;
+        let dbId: any = null;
+
+        if (typeof id === 'string' && id.startsWith('reapprove_')) {
+          const requestId = parseInt(id.replace('reapprove_', ''));
+          const reqRecord = await db.get('SELECT * FROM reapprove_requests WHERE id = ?', requestId);
+          if (!reqRecord) {
+            return NextResponse.json({ error: 'Re-approval record not found' }, { status: 404 });
+          }
+          fileId = reqRecord.gdrive_file_id;
+          filename = reqRecord.filename || 'image.jpg';
+          sheetRowIndex = reqRecord.sheet_row_index;
+        } else if (typeof id === 'string' && id.startsWith('sheet_')) {
+          const rowIndex = parseInt(id.replace('sheet_', ''));
+          sheetRowIndex = rowIndex;
+          const spreadsheetId = (await db.get("SELECT value FROM settings WHERE key = 'google_spreadsheet_id'"))?.value;
+          const sheetName = (await db.get("SELECT value FROM settings WHERE key = 'google_sheet_name'"))?.value || 'Sheet1';
+          if (!spreadsheetId) {
+            return NextResponse.json({ error: 'Google Spreadsheet ID is not configured' }, { status: 400 });
+          }
+          const { getGoogleAuth } = await import('@/lib/google/gdrive');
+          const { google } = await import('googleapis');
+          const auth = getGoogleAuth();
+          const sheets = google.sheets({ version: 'v4', auth });
+          const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${sheetName}!A${rowIndex}:B${rowIndex}`,
+          });
+          const row = response.data.values?.[0] || [];
+          filename = row[0] || 'image.jpg';
+          const driveLink = row[1] || '';
+          const match = driveLink.match(/[?&]id=([^&]+)/);
+          if (match) fileId = match[1];
+          else {
+            const matchd = driveLink.match(/\/d\/([^\/]+)/);
+            if (matchd) fileId = matchd[1];
+          }
+        } else {
+          const imgRecord = await db.get('SELECT * FROM images WHERE id = ?', id);
+          if (!imgRecord) {
+            return NextResponse.json({ error: 'Image record not found' }, { status: 404 });
+          }
+          fileId = imgRecord.gdrive_file_id;
+          filename = imgRecord.filename || 'image.jpg';
+          dbId = imgRecord.id;
+        }
+
+        if (!fileId) {
+          return NextResponse.json({ error: 'Google Drive File ID could not be resolved for this image' }, { status: 400 });
+        }
+
+        const driveFolders = await setupDriveFolders();
+        console.log(`[Watermark Action] Processing watermark for ${filename} (File ID: ${fileId})...`);
+        const originalBuffer = await downloadImageBuffer(fileId);
+        const watermarkedBuffer = await watermarkImage(originalBuffer);
+        const mimeType = filename.toLowerCase().endsWith('.png') ? 'image/png' : (filename.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg');
+
+        const newFileId = await uploadFile(filename, watermarkedBuffer, mimeType, driveFolders.verifiedId);
+        if (!newFileId) {
+          return NextResponse.json({ error: 'Failed to upload watermarked image to Google Drive' }, { status: 500 });
+        }
+
+        const newDriveLink = `https://drive.google.com/open?id=${newFileId}`;
+
+        if (dbId) {
+          await db.run('UPDATE images SET gdrive_file_id = ? WHERE id = ?', newFileId, dbId);
+        } else if (fileId) {
+          await db.run('UPDATE images SET gdrive_file_id = ? WHERE gdrive_file_id = ?', newFileId, fileId);
+        }
+
+        if (typeof id === 'string' && id.startsWith('reapprove_')) {
+          const requestId = parseInt(id.replace('reapprove_', ''));
+          await db.run('UPDATE reapprove_requests SET gdrive_file_id = ? WHERE id = ?', newFileId, requestId);
+        }
+
+        const spreadsheetId = (await db.get("SELECT value FROM settings WHERE key = 'google_spreadsheet_id'"))?.value;
+        const sheetName = (await db.get("SELECT value FROM settings WHERE key = 'google_sheet_name'"))?.value || 'Sheet1';
+        if (spreadsheetId && sheetRowIndex) {
+          try {
+            const { getGoogleAuth } = await import('@/lib/google/gdrive');
+            const { google } = await import('googleapis');
+            const auth = getGoogleAuth();
+            const sheets = google.sheets({ version: 'v4', auth });
+            await sheets.spreadsheets.values.update({
+              spreadsheetId,
+              range: `${sheetName}!B${sheetRowIndex}`,
+              valueInputOption: 'USER_ENTERED',
+              requestBody: { values: [[newDriveLink]] },
+            });
+          } catch (sheetErr) {
+            console.error('[Watermark Action] Failed to update Google Sheet B column link:', sheetErr);
+          }
+        }
+
+        try {
+          await deleteFile(fileId);
+        } catch (delErr) {
+          console.warn('[Watermark Action] Could not delete original file after watermarking:', delErr);
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Watermark applied and synced to Google Sheet successfully!',
+          newFileId,
+          newDriveLink,
+        });
+      } catch (err: any) {
+        console.error('[Watermark Action] Error watermarking image:', err);
+        return NextResponse.json({ error: `Failed to watermark image: ${err.message || err}` }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

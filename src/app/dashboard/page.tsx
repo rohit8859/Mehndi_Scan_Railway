@@ -435,6 +435,8 @@ export default function DashboardPage() {
             ? 'Submitted to admin for final approval'
             : action === 'DELETE'
             ? 'Deleted from system'
+            : action === 'WATERMARK'
+            ? 'Watermark applied and synced successfully'
             : 'Changes saved',
           'success'
         );
@@ -458,7 +460,7 @@ export default function DashboardPage() {
   };
 
   // Bulk Action Execution
-  const handleBulkAction = async (action: 'BULK_APPROVE' | 'BULK_REJECT' | 'BULK_EDIT_PRICE' | 'BULK_EDIT_STYLE' | 'BULK_DELETE') => {
+  const handleBulkAction = async (action: 'BULK_APPROVE' | 'BULK_REJECT' | 'BULK_EDIT_PRICE' | 'BULK_EDIT_STYLE' | 'BULK_DELETE' | 'BULK_WATERMARK') => {
     if (selectedIds.length === 0) return;
     setActionLoading(true);
 
@@ -847,6 +849,28 @@ export default function DashboardPage() {
                 {images.length} images queued
               </span>
             </div>
+
+            {/* Bulk Actions Bar */}
+            {showBulkToolbar && (
+              <div className="p-2 border-b border-zinc-800 bg-zinc-900/60 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <button
+                  onClick={handleSelectAll}
+                  className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[11px] font-medium"
+                >
+                  {selectedIds.length === images.length ? 'Deselect All' : 'Select All'}
+                </button>
+                {selectedIds.length > 0 && userRole === 'ADMIN' && (
+                  <button
+                    onClick={() => handleBulkAction('BULK_WATERMARK')}
+                    disabled={actionLoading}
+                    className="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md shadow-cyan-600/10 active:scale-[0.98] transition-all"
+                  >
+                    {actionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-cyan-200" />}
+                    <span>Add Watermark ({selectedIds.length})</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Images Queue List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -1510,6 +1534,16 @@ export default function DashboardPage() {
                           {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                           <span>{userRole === 'ADMIN' ? 'Save & Sync Google Sheet' : 'Submit for Admin Approval'}</span>
                         </button>
+                        {userRole === 'ADMIN' && (
+                          <button
+                            onClick={() => handleUpdateImage('WATERMARK')}
+                            disabled={actionLoading}
+                            className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-700 text-white font-bold py-2.5 px-3 rounded-xl shadow-lg shadow-cyan-500/10 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider"
+                          >
+                            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-cyan-200" />}
+                            <span>Add Watermark</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             if (confirm('Are you sure you want to delete this photo from both Google Drive and Google Sheets?')) {
@@ -1517,7 +1551,7 @@ export default function DashboardPage() {
                             }
                           }}
                           disabled={actionLoading}
-                          className="flex-1 bg-zinc-900 border border-red-900/40 text-red-400 hover:bg-red-950/20 disabled:opacity-50 font-bold py-2.5 px-4 rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider"
+                          className="bg-zinc-900 border border-red-900/40 text-red-400 hover:bg-red-950/20 disabled:opacity-50 font-bold py-2.5 px-3 rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider"
                         >
                           <Trash2 className="w-4 h-4" />
                           <span>Delete</span>
@@ -1591,6 +1625,16 @@ export default function DashboardPage() {
                       </div>
                       
                       <div className="flex gap-2">
+                        {userRole === 'ADMIN' && (
+                          <button
+                            onClick={() => handleUpdateImage('WATERMARK')}
+                            disabled={actionLoading}
+                            className="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-700 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-cyan-600/10 active:scale-[0.98]"
+                          >
+                            {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-cyan-200" />}
+                            <span>Add Watermark</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleUpdateImage('SAVE')}
                           disabled={actionLoading}
